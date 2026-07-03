@@ -138,10 +138,21 @@ h2{font-size:18px;font-weight:600;margin-bottom:20px;color:#fff}
   100%{opacity:0}
 }
 </style>
+
+<script>
+window.jsErrors = [];
+window.onerror = function(msg, url, line, col, err) {
+  window.jsErrors.push({msg: String(msg), url: String(url), line: line, col: col, time: new Date().toISOString()});
+  var el = document.getElementById('jsStatus');
+  if (el) { el.textContent = '❌ JS错误: ' + msg; el.style.color = '#ef4444'; }
+  return false;
+};
+</script>
+
 </head>
 <body>
 <header>
-  <h1>SyncCamp</h1>
+  <h1>SyncCamp<span id="jsStatus" style="font-size:12px;color:#666;margin-left:8px">加载中...</span></h1>
   <div class="name-bar">
     <input type="text" id="userName" placeholder="你的昵称" maxlength="16">
     <button onclick="saveName()">保存</button>
@@ -489,12 +500,21 @@ function esc(s) {
 loadName();
 try {
   if (initSupabase()) {
+    document.getElementById('jsStatus').textContent = '✅ 已连接';
+    document.getElementById('jsStatus').style.color = '#22c55e';
     loadEvents();
     loadMessages();
     loadFiles();
     subscribeChat();
+  } else {
+    document.getElementById('jsStatus').textContent = '⚠️ 连接失败，刷新试试';
+    document.getElementById('jsStatus').style.color = '#f59e0b';
   }
-} catch(e) { console.error("初始化失败:", e); }
+} catch(e) {
+  console.error("初始化失败:", e);
+  document.getElementById('jsStatus').textContent = '❌ ' + e.message;
+  document.getElementById('jsStatus').style.color = '#ef4444';
+}
 </script>
 </body>
 </html>
