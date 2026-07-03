@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SyncCamp — 共享空间</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:#0a0a0a;color:#e0e0e0;min-height:100vh;
+  display:flex;flex-direction:column
+}
+
+header{
+  padding:20px 24px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid #1a1a1a
+}
+header h1{font-size:20px;font-weight:600;letter-spacing:-0.3px;color:#fff}
+.name-bar{display:flex;align-items:center;gap:8px}
+.name-bar input{
+  background:#141414;border:1px solid #2a2a2a;color:#e0e0e0;
+  padding:6px 12px;border-radius:6px;font-size:13px;width:120px;outline:none;
+  transition:border-color .2s
+}
+.name-bar input:focus{border-color:#3b82f6}
+.name-bar button{
+  background:#3b82f6;color:#fff;border:none;padding:6px 14px;border-radius:6px;
+  font-size:13px;cursor:pointer;transition:background .2s
+}
+.name-bar button:hover{background:#2563eb}
+
+nav{
+  display:flex;gap:0;border-bottom:1px solid #1a1a1a;padding:0 24px
+}
+nav button{
+  background:none;border:none;color:#666;padding:14px 24px;font-size:14px;
+  cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;
+  font-weight:500
+}
+nav button.active{color:#fff;border-bottom-color:#3b82f6}
+nav button:hover{color:#aaa}
+
+main{flex:1;padding:24px;max-width:800px;margin:0 auto;width:100%}
+
+.panel{display:none}
+.panel.active{display:block}
+
+h2{font-size:18px;font-weight:600;margin-bottom:20px;color:#fff}
+
+.card{
+  background:#141414;border:1px solid #1a1a1a;border-radius:10px;
+  padding:20px;margin-bottom:16px
+}
+
+.form-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.form-row input,.form-row textarea{
+  background:#0a0a0a;border:1px solid #2a2a2a;color:#e0e0e0;
+  padding:10px 14px;border-radius:8px;font-size:14px;outline:none;
+  transition:border-color .2s;font-family:inherit
+}
+.form-row input:focus,.form-row textarea:focus{border-color:#3b82f6}
+.form-row input{flex:1;min-width:120px}
+.form-row input[type="date"],.form-row input[type="time"]{flex:0;min-width:140px}
+
+.btn{
+  background:#3b82f6;color:#fff;border:none;padding:10px 20px;border-radius:8px;
+  font-size:14px;cursor:pointer;transition:background .2s;font-weight:500
+}
+.btn:hover{background:#2563eb}
+.btn-sm{
+  background:#2a2a2a;color:#ccc;border:none;padding:6px 12px;border-radius:6px;
+  font-size:12px;cursor:pointer;transition:background .2s
+}
+.btn-sm:hover{background:#3a3a3a}
+
+.event-list,.file-list{display:flex;flex-direction:column;gap:12px}
+
+.event-item{background:#141414;border:1px solid #1a1a1a;border-radius:10px;padding:16px}
+.event-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.event-title{font-size:16px;font-weight:600;color:#fff}
+.event-meta{font-size:13px;color:#888}
+
+.rsvp-section{margin-top:12px;padding-top:12px;border-top:1px solid #1a1a1a}
+.rsvp-list{margin-top:8px}
+.rsvp-item{font-size:13px;color:#aaa;padding:4px 0;display:flex;gap:8px;align-items:center}
+
+.chat-messages{height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+  padding-right:8px;margin-bottom:12px
+}
+.chat-messages::-webkit-scrollbar{width:4px}
+.chat-messages::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:2px}
+
+.chat-msg{display:flex;gap:8px;align-items:flex-start}
+.chat-msg .avatar{
+  width:32px;height:32px;border-radius:50%;background:#1e3a5f;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  font-weight:600;color:#3b82f6;flex-shrink:0
+}
+.chat-msg .body{flex:1}
+.chat-msg .author{font-size:12px;color:#3b82f6;font-weight:600;margin-bottom:2px}
+.chat-msg .content{font-size:14px;color:#d0d0d0;line-height:1.5}
+.chat-msg .time{font-size:11px;color:#555;margin-top:2px}
+
+.chat-input-row{display:flex;gap:8px}
+.chat-input-row input{
+  flex:1;background:#141414;border:1px solid #2a2a2a;color:#e0e0e0;
+  padding:10px 14px;border-radius:8px;font-size:14px;outline:none
+}
+.chat-input-row input:focus{border-color:#3b82f6}
+
+.file-card{display:flex;align-items:center;justify-content:space-between;
+  background:#141414;border:1px solid #1a1a1a;border-radius:10px;padding:12px 16px
+}
+.file-name{font-size:14px;color:#e0e0e0;font-weight:500}
+.file-size{font-size:12px;color:#666}
+.file-actions{display:flex;gap:8px}
+
+.upload-zone{
+  border:2px dashed #2a2a2a;border-radius:10px;padding:40px;text-align:center;
+  cursor:pointer;transition:border-color .2s;margin-bottom:20px
+}
+.upload-zone:hover{border-color:#3b82f6}
+.upload-zone p{color:#666;font-size:14px}
+.upload-zone .icon{font-size:36px;margin-bottom:8px}
+
+.empty{text-align:center;color:#444;padding:40px;font-size:14px}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1e3a5f;color:#3b82f6;padding:10px 24px;border-radius:8px;
+  font-size:14px;z-index:100;animation:fadeInOut 2.5s forwards
+}
+@keyframes fadeInOut{
+  0%{opacity:0;transform:translateX(-50%) translateY(10px)}
+  10%{opacity:1;transform:translateX(-50%) translateY(0)}
+  80%{opacity:1}
+  100%{opacity:0}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>SyncCamp</h1>
+  <div class="name-bar">
+    <input type="text" id="userName" placeholder="你的昵称" maxlength="16">
+    <button onclick="saveName()">保存</button>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" data-panel="vote">日程投票</button>
+  <button class="tab" data-panel="chat">聊天室</button>
+  <button class="tab" data-panel="files">文件互传</button>
+</nav>
+
+<main>
+
+<div class="panel active" id="panel-vote">
+  <h2>发起新活动</h2>
+  <div class="card">
+    <div class="form-row">
+      <input type="text" id="eventTitle" placeholder="活动名称" style="flex:2">
+      <input type="date" id="eventDate">
+      <input type="time" id="eventStart" value="14:00">
+      <input type="time" id="eventEnd" value="16:00">
+    </div>
+    <button class="btn" onclick="createEvent()">发布活动</button>
+  </div>
+  <h2>进行中的活动</h2>
+  <div class="event-list" id="eventList">
+    <div class="empty">暂无活动，来发起一个吧</div>
+  </div>
+</div>
+
+<div class="panel" id="panel-chat">
+  <h2>聊天室</h2>
+  <div class="chat-messages" id="chatMessages">
+    <div class="empty">还没有消息，来打个招呼吧</div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="输入消息..." maxlength="500" onkeydown="if(event.key==='Enter')sendMessage()">
+    <button class="btn" onclick="sendMessage()">发送</button>
+  </div>
+</div>
+
+<div class="panel" id="panel-files">
+  <h2>文件互传</h2>
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <div class="icon">📁</div>
+    <p>点击上传文件（最大 50MB）</p>
+  </div>
+  <input type="file" id="fileInput" style="display:none" onchange="uploadFile()">
+  <div class="file-list" id="fileList">
+    <div class="empty">暂无共享文件</div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// === SUPABASE CONFIG ===
+// TODO: 替换为你的 Supabase 项目凭据
+const SUPABASE_URL = 'https://tqxbfwwstbztqkexgtjw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxeGJmd3dzdGJ6dHFrZXhndGp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzQ5NjEsImV4cCI6MjA5ODYxMDk2MX0.PlZlooz-Im_Y74Y_nEAU-kTMqGardJE6mtsym-K9Uko';
+
+let supabase = null;
+let userName = '';
+
+function initSupabase() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#888;font-size:16px">请在 index.html 中填入你的 Supabase 项目 URL 和 anon key</div>';
+    return false;
+  }
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+
+// === NAME ===
+function loadName() {
+  const saved = localStorage.getItem('synccamp_name');
+  if (saved) {
+    userName = saved;
+    document.getElementById('userName').value = saved;
+  }
+}
+function saveName() {
+  const input = document.getElementById('userName');
+  const name = input.value.trim();
+  if (!name) { toast('请输入昵称'); return; }
+  userName = name;
+  localStorage.setItem('synccamp_name', name);
+  toast('昵称已保存');
+}
+
+// === TABS ===
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    if (btn.dataset.panel === 'vote') loadEvents();
+    if (btn.dataset.panel === 'chat') scrollChatBottom();
+    if (btn.dataset.panel === 'files') loadFiles();
+  });
+});
+
+// === TOAST ===
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// === EVENTS ===
+async function createEvent() {
+  if (!userName) { toast('请先设置昵称'); return; }
+  const title = document.getElementById('eventTitle').value.trim();
+  const date = document.getElementById('eventDate').value;
+  const start = document.getElementById('eventStart').value;
+  const end = document.getElementById('eventEnd').value;
+  if (!title || !date || !start || !end) { toast('请填写完整信息'); return; }
+  if (start >= end) { toast('结束时间必须晚于开始时间'); return; }
+
+  const { error } = await supabase.from('events').insert({
+    title, event_date: date, start_time: start, end_time: end, creator_name: userName
+  });
+  if (error) { toast('发布失败: ' + error.message); return; }
+  toast('活动已发布');
+  document.getElementById('eventTitle').value = '';
+  loadEvents();
+}
+
+async function loadEvents() {
+  if (!supabase) return;
+  const { data: events, error } = await supabase.from('events')
+    .select('*, responses(*)').order('created_at', { ascending: false });
+  if (error) return;
+
+  const container = document.getElementById('eventList');
+  if (!events || events.length === 0) {
+    container.innerHTML = '<div class="empty">暂无活动，来发起一个吧</div>';
+    return;
+  }
+
+  container.innerHTML = events.map(ev => {
+    const responses = ev.responses || [];
+    const d = new Date(ev.event_date);
+    const dateStr = d.toLocaleDateString('zh-CN', { month:'long', day:'numeric', weekday:'short' });
+    return `
+    <div class="event-item">
+      <div class="event-header">
+        <div>
+          <div class="event-title">${esc(ev.title)}</div>
+          <div class="event-meta">${dateStr} ${ev.start_time.slice(0,5)}-${ev.end_time.slice(0,5)} · 发起人: ${esc(ev.creator_name)}</div>
+        </div>
+        <button class="btn-sm" onclick="toggleRsvp(${ev.id})">${responses.length} 人参与</button>
+      </div>
+      <div class="rsvp-section" id="rsvp-${ev.id}" style="display:none">
+        <div class="form-row">
+          <input type="time" id="rsvp-start-${ev.id}" value="${ev.start_time.slice(0,5)}" style="min-width:120px">
+          <span style="color:#666;align-self:center">至</span>
+          <input type="time" id="rsvp-end-${ev.id}" value="${ev.end_time.slice(0,5)}" style="min-width:120px">
+          <button class="btn-sm" onclick="submitRsvp(${ev.id})" style="background:#3b82f6;color:#fff">我参加</button>
+        </div>
+        <div class="rsvp-list">
+          ${responses.map(r => `
+            <div class="rsvp-item">
+              <span style="color:#e0e0e0">${esc(r.user_name)}</span>
+              <span style="color:#666">${r.available_start.slice(0,5)} - ${r.available_end.slice(0,5)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRsvp(eventId) {
+  const el = document.getElementById('rsvp-' + eventId);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function submitRsvp(eventId) {
+  if (!userName) { toast('请先设置昵称'); return; }
+  const start = document.getElementById('rsvp-start-' + eventId).value;
+  const end = document.getElementById('rsvp-end-' + eventId).value;
+  if (!start || !end) { toast('请选择你的可用时段'); return; }
+
+  const { error } = await supabase.from('responses').insert({
+    event_id: eventId, user_name: userName, available_start: start, available_end: end
+  });
+  if (error) { toast('提交失败: ' + error.message); return; }
+  toast('已登记');
+  loadEvents();
+}
+
+// === CHAT ===
+let chatSubscription = null;
+
+async function loadMessages() {
+  if (!supabase) return;
+  const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: true }).limit(100);
+  renderMessages(data || []);
+}
+
+function renderMessages(messages) {
+  const container = document.getElementById('chatMessages');
+  if (messages.length === 0) {
+    container.innerHTML = '<div class="empty">还没有消息，来打个招呼吧</div>';
+    return;
+  }
+  container.innerHTML = messages.map(m => {
+    const t = new Date(m.created_at);
+    const ts = t.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+    return `
+    <div class="chat-msg">
+      <div class="avatar">${esc(m.user_name.charAt(0).toUpperCase())}</div>
+      <div class="body">
+        <div class="author">${esc(m.user_name)}</div>
+        <div class="content">${esc(m.content)}</div>
+        <div class="time">${ts}</div>
+      </div>
+    </div>`;
+  }).join('');
+  scrollChatBottom();
+}
+
+function scrollChatBottom() {
+  const el = document.getElementById('chatMessages');
+  setTimeout(() => { el.scrollTop = el.scrollHeight; }, 100);
+}
+
+async function sendMessage() {
+  if (!userName) { toast('请先设置昵称'); return; }
+  const input = document.getElementById('chatInput');
+  const content = input.value.trim();
+  if (!content) return;
+
+  const { error } = await supabase.from('messages').insert({ user_name: userName, content });
+  if (error) { toast('发送失败'); return; }
+  input.value = '';
+}
+
+function subscribeChat() {
+  if (!supabase) return;
+  if (chatSubscription) supabase.removeChannel(chatSubscription);
+  chatSubscription = supabase
+    .channel('messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      const container = document.getElementById('chatMessages');
+      // Remove empty state
+      const emptyEl = container.querySelector('.empty');
+      if (emptyEl) emptyEl.remove();
+      // Append message
+      const m = payload.new;
+      const t = new Date(m.created_at);
+      const ts = t.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      div.innerHTML = `
+        <div class="avatar">${esc(m.user_name.charAt(0).toUpperCase())}</div>
+        <div class="body">
+          <div class="author">${esc(m.user_name)}</div>
+          <div class="content">${esc(m.content)}</div>
+          <div class="time">${ts}</div>
+        </div>`;
+      container.appendChild(div);
+      scrollChatBottom();
+      // Limit to 100 visible messages
+      while (container.children.length > 100) {
+        container.removeChild(container.firstChild);
+      }
+    })
+    .subscribe();
+}
+
+// === FILES ===
+async function uploadFile() {
+  if (!userName) { toast('请先设置昵称'); return; }
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
+  if (!file) return;
+  if (file.size > 50 * 1024 * 1024) { toast('文件不能超过 50MB'); return; }
+
+  const filePath = `${Date.now()}_${file.name}`;
+  const { error } = await supabase.storage.from('files').upload(filePath, file);
+  if (error) { toast('上传失败: ' + error.message); return; }
+  toast('上传成功');
+  fileInput.value = '';
+  loadFiles();
+}
+
+async function loadFiles() {
+  if (!supabase) return;
+  const { data, error } = await supabase.storage.from('files').list();
+  if (error) {
+    document.getElementById('fileList').innerHTML = '<div class="empty">暂无共享文件</div>';
+    return;
+  }
+
+  const container = document.getElementById('fileList');
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="empty">暂无共享文件</div>';
+    return;
+  }
+
+  container.innerHTML = data.map(f => {
+    const url = supabase.storage.from('files').getPublicUrl(f.name).data.publicUrl;
+    const size = f.metadata?.size ? formatSize(f.metadata.size) : '?';
+    return `
+    <div class="file-card">
+      <div>
+        <div class="file-name">${esc(f.name.replace(/^\d+_/, ''))}</div>
+        <div class="file-size">${size}</div>
+      </div>
+      <div class="file-actions">
+        <a href="${url}" target="_blank" class="btn-sm" style="text-decoration:none">下载</a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// === UTIL ===
+function esc(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// === INIT ===
+loadName();
+if (initSupabase()) {
+  loadEvents();
+  loadMessages();
+  loadFiles();
+  subscribeChat();
+}
+</script>
+</body>
+</html>
