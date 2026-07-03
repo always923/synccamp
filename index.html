@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SyncCamp — 共享空间</title>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';document.head.appendChild(s);"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{
@@ -209,8 +209,10 @@ let supabase = null;
 let userName = '';
 
 function initSupabase() {
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#888;font-size:16px">请在 index.html 中填入你的 Supabase 项目 URL 和 anon key</div>';
+  if (typeof window.supabase === 'undefined') {
+    document.getElementById('eventList').innerHTML = '<div class="empty" style="color:#ef4444">⚠️ 无法连接服务器（CDN 加载失败），请检查网络后刷新页面</div>';
+    document.getElementById('chatMessages').innerHTML = '<div class="empty" style="color:#ef4444">⚠️ 无法连接服务器</div>';
+    document.getElementById('fileList').innerHTML = '<div class="empty" style="color:#ef4444">⚠️ 无法连接服务器</div>';
     return false;
   }
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -258,6 +260,7 @@ function toast(msg) {
 
 // === EVENTS ===
 async function createEvent() {
+  if (!supabase) { toast('正在连接服务器，请稍候...'); return; }
   if (!userName) { toast('请先设置昵称'); return; }
   const title = document.getElementById('eventTitle').value.trim();
   const date = document.getElementById('eventDate').value;
@@ -326,6 +329,7 @@ function toggleRsvp(eventId) {
 }
 
 async function submitRsvp(eventId) {
+  if (!supabase) { toast('正在连接服务器，请稍候...'); return; }
   if (!userName) { toast('请先设置昵称'); return; }
   const start = document.getElementById('rsvp-start-' + eventId).value;
   const end = document.getElementById('rsvp-end-' + eventId).value;
@@ -376,14 +380,16 @@ function scrollChatBottom() {
 }
 
 async function sendMessage() {
+  if (!supabase) { toast('正在连接服务器，请稍候...'); return; }
   if (!userName) { toast('请先设置昵称'); return; }
   const input = document.getElementById('chatInput');
   const content = input.value.trim();
   if (!content) return;
 
   const { error } = await supabase.from('messages').insert({ user_name: userName, content });
-  if (error) { toast('发送失败'); return; }
+  if (error) { toast('发送失败: ' + error.message); return; }
   input.value = '';
+  loadMessages();
 }
 
 function subscribeChat() {
@@ -421,6 +427,7 @@ function subscribeChat() {
 
 // === FILES ===
 async function uploadFile() {
+  if (!supabase) { toast('正在连接服务器，请稍候...'); return; }
   if (!userName) { toast('请先设置昵称'); return; }
   const fileInput = document.getElementById('fileInput');
   const file = fileInput.files[0];
@@ -480,11 +487,13 @@ function esc(s) {
 
 // === INIT ===
 loadName();
-try { initSupabase();
-  loadEvents();
-  loadMessages();
-  loadFiles();
-  subscribeChat();
+try {
+  if (initSupabase()) {
+    loadEvents();
+    loadMessages();
+    loadFiles();
+    subscribeChat();
+  }
 } catch(e) { console.error("初始化失败:", e); }
 </script>
 </body>
