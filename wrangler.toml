@@ -1,0 +1,20 @@
+name = "synccamp"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+# D1 数据库
+[[d1_databases]]
+binding = "DB"
+database_name = "synccamp-db"
+database_id = ""
+
+# R2 存储桶
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "synccamp-files"
+
+# 部署后自动分配 workers.dev 子域名
+workers_dev = true
+
+[env]
+[env.production]
