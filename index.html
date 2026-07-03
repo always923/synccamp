@@ -480,12 +480,12 @@ function esc(s) {
 
 // === INIT ===
 loadName();
-try { if (initSupabase()) {
+try { initSupabase();
   loadEvents();
   loadMessages();
   loadFiles();
   subscribeChat();
-}
+} catch(e) { console.error("初始化失败:", e); }
 </script>
 </body>
 </html>
