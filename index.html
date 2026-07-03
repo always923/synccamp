@@ -137,7 +137,7 @@ h2{font-size:18px;font-weight:600;margin-bottom:20px;color:#fff}
 <nav>
   <button class="tab active" data-panel="vote">日程投票</button>
   <button class="tab" data-panel="chat">聊天室</button>
-  <button class="tab" data-panel="files">文件互传</button>
+  
 </nav>
 <main>
 <div class="panel active" id="panel-vote">
@@ -166,16 +166,6 @@ h2{font-size:18px;font-weight:600;margin-bottom:20px;color:#fff}
     <button class="btn" onclick="sendMessage()">发送</button>
   </div>
 </div>
-<div class="panel" id="panel-files">
-  <h2>文件互传</h2>
-  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-    <div class="icon">📁</div>
-    <p>点击上传文件（最大 50MB）</p>
-  </div>
-  <input type="file" id="fileInput" style="display:none" onchange="uploadFile()">
-  <div class="file-list" id="fileList">
-    <div class="empty">暂无共享文件</div>
-  </div>
 </div>
 </main>
 <script>
@@ -184,7 +174,7 @@ h2{font-size:18px;font-weight:600;margin-bottom:20px;color:#fff}
 // ================================
 //
 //
-const API_URL = 'https://synccamp.synccamp.workers.dev';
+const API_URL = 'https://synccamp.always923.workers.dev';
 
 let userName = '';
 let lastMsgId = 0;
@@ -220,196 +210,4 @@ async function api(method, path, body) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
   }
-  var res = await fetch(API_URL + path, opts);
-  if (path.indexOf('/files/') > 0 && method === 'GET') {
-    if (!res.ok) throw new Error('下载失败');
-    return res;
-  }
-  var data = await res.json();
-  if (!res.ok) throw new Error(data.error || '请求失败');
-  return data;
-}
-
-function loadName() {
-  var s = localStorage.getItem('synccamp_name');
-  if (s) { userName = s; document.getElementById('userName').value = s; }
-}
-function saveName() {
-  var input = document.getElementById('userName');
-  var name = input.value.trim();
-  if (!name) { toast('请输入昵称'); return; }
-  userName = name;
-  localStorage.setItem('synccamp_name', name);
-  toast('昵称已保存');
-}
-
-document.querySelectorAll('.tab').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.tab').forEach(function(b) { b.classList.remove('active'); });
-    document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
-    btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
-    if (btn.dataset.panel === 'vote') loadEvents();
-    if (btn.dataset.panel === 'chat') { loadMessages(); startPoll(); }
-    if (btn.dataset.panel === 'files') loadFiles();
-  });
-});
-
-// ---------- EVENTS ----------
-async function createEvent() {
-  if (!userName) { toast('请先设置昵称'); return; }
-  var title = document.getElementById('eventTitle').value.trim();
-  var date = document.getElementById('eventDate').value;
-  var start = document.getElementById('eventStart').value;
-  var end = document.getElementById('eventEnd').value;
-  if (!title || !date || !start || !end) { toast('请填写完整信息'); return; }
-  if (start >= end) { toast('结束时间必须晚于开始时间'); return; }
-  try {
-    await api('POST','/api/events',{title:title,event_date:date,start_time:start,end_time:end,creator_name:userName});
-    toast('活动已发布');
-    document.getElementById('eventTitle').value = '';
-    loadEvents();
-  } catch(e) { toast('发布失败: ' + e.message); }
-}
-async function loadEvents() {
-  try { renderEvents(await api('GET','/api/events')); } catch(e) {}
-}
-function renderEvents(events) {
-  var c = document.getElementById('eventList');
-  if (!events || events.length === 0) { c.innerHTML = '<div class="empty">暂无活动，来发起一个吧</div>'; return; }
-  c.innerHTML = events.map(function(ev) {
-    var r = ev.responses || [];
-    var d = new Date(ev.event_date + 'T00:00:00');
-    var ds = d.toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'short'});
-    return '<div class="event-item"><div class="event-header"><div><div class="event-title">'+esc(ev.title)+'</div><div class="event-meta">'+ds+' '+(ev.start_time||'').slice(0,5)+'-'+(ev.end_time||'').slice(0,5)+' · 发起人: '+esc(ev.creator_name)+'</div></div><button class="btn-sm" onclick="toggleRsvp('+ev.id+')">'+r.length+' 人参与</button></div><div class="rsvp-section" id="rsvp-'+ev.id+'" style="display:none"><div class="form-row"><input type="time" id="rsvp-start-'+ev.id+'" value="'+(ev.start_time||'').slice(0,5)+'" style="min-width:120px"><span style="color:#666;align-self:center">至</span><input type="time" id="rsvp-end-'+ev.id+'" value="'+(ev.end_time||'').slice(0,5)+'" style="min-width:120px"><button class="btn-sm" onclick="submitRsvp('+ev.id+')" style="background:#3b82f6;color:#fff">我参加</button></div><div class="rsvp-list">'+r.map(function(x){return '<div class="rsvp-item"><span style="color:#e0e0e0">'+esc(x.user_name)+'</span><span style="color:#666">'+(x.available_start||'').slice(0,5)+' - '+(x.available_end||'').slice(0,5)+'</span></div>';}).join('')+'</div></div></div>';
-  }).join('');
-}
-function toggleRsvp(id) {
-  var el = document.getElementById('rsvp-'+id);
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-async function submitRsvp(id) {
-  if (!userName) { toast('请先设置昵称'); return; }
-  var s = document.getElementById('rsvp-start-'+id).value;
-  var e = document.getElementById('rsvp-end-'+id).value;
-  if (!s || !e) { toast('请选择你的可用时段'); return; }
-  try {
-    await api('POST','/api/responses',{event_id:id,user_name:userName,available_start:s,available_end:e});
-    toast('已登记');
-    loadEvents();
-  } catch(ex) { toast('提交失败: '+ex.message); }
-}
-
-// ---------- CHAT (polling) ----------
-async function loadMessages() {
-  try {
-    var url = '/api/messages' + (lastMsgId > 0 ? '?after='+lastMsgId : '');
-    var data = await api('GET', url);
-    if (data.messages && data.messages.length > 0) {
-      if (lastMsgId === 0) renderMessages(data.messages);
-      else appendMessages(data.messages);
-      data.messages.forEach(function(m) { if (m.id > lastMsgId) lastMsgId = m.id; });
-    }
-  } catch(e) {}
-}
-function renderMessages(msgs) {
-  var c = document.getElementById('chatMessages');
-  if (msgs.length === 0) { c.innerHTML = '<div class="empty">还没有消息，来打个招呼吧</div>'; return; }
-  c.innerHTML = msgs.map(function(m) {
-    var ts = timeStr(m.created_at);
-    return '<div class="chat-msg"><div class="avatar">'+esc((m.user_name||'?').charAt(0).toUpperCase())+'</div><div class="body"><div class="author">'+esc(m.user_name)+'</div><div class="content">'+esc(m.content)+'</div><div class="time">'+ts+'</div></div></div>';
-  }).join('');
-  scrollBottom();
-}
-function appendMessages(msgs) {
-  var c = document.getElementById('chatMessages');
-  var e = c.querySelector('.empty');
-  if (e) e.remove();
-  msgs.forEach(function(m) {
-    var d = document.createElement('div');
-    d.className = 'chat-msg';
-    d.innerHTML = '<div class="avatar">'+esc((m.user_name||'?').charAt(0).toUpperCase())+'</div><div class="body"><div class="author">'+esc(m.user_name)+'</div><div class="content">'+esc(m.content)+'</div><div class="time">'+timeStr(m.created_at)+'</div></div>';
-    c.appendChild(d);
-  });
-  while (c.children.length > 100) c.removeChild(c.firstChild);
-  scrollBottom();
-}
-function timeStr(ts) {
-  if (!ts) return '';
-  try { return new Date(ts+(ts.indexOf('T')===-1?'T00:00:00':'')).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}); } catch(e) { return ''; }
-}
-function scrollBottom() {
-  setTimeout(function() { document.getElementById('chatMessages').scrollTop = 1e9; }, 100);
-}
-async function sendMessage() {
-  if (!userName) { toast('请先设置昵称'); return; }
-  var input = document.getElementById('chatInput');
-  var content = input.value.trim();
-  if (!content) return;
-  try {
-    await api('POST','/api/messages',{user_name:userName,content:content});
-    input.value = '';
-    lastMsgId = 0;
-    setTimeout(loadMessages, 200);
-  } catch(e) { toast('发送失败: '+e.message); }
-}
-function startPoll() {
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(function() {
-    var p = document.getElementById('panel-chat');
-    if (p && p.classList.contains('active')) loadMessages();
-  }, 2000);
-}
-
-// ---------- FILES ----------
-async function uploadFile() {
-  if (!userName) { toast('请先设置昵称'); return; }
-  var fi = document.getElementById('fileInput');
-  var file = fi.files[0];
-  if (!file) return;
-  if (file.size > 50*1024*1024) { toast('文件不能超过 50MB'); return; }
-  try {
-    var fd = new FormData();
-    fd.append('file', file);
-    var r = await fetch(API_URL + '/api/files/upload', {method:'POST', body:fd});
-    var d = await r.json();
-    if (!r.ok) throw new Error(d.error||'上传失败');
-    toast('上传成功');
-    fi.value = '';
-    loadFiles();
-  } catch(e) { toast('上传失败: '+(e.message||'未知错误')); }
-}
-async function loadFiles() {
-  try {
-    var data = await api('GET','/api/files');
-    renderFiles(data.files || []);
-  } catch(e) { document.getElementById('fileList').innerHTML = '<div class="empty">暂无共享文件</div>'; }
-}
-function renderFiles(files) {
-  var c = document.getElementById('fileList');
-  if (files.length === 0) { c.innerHTML = '<div class="empty">暂无共享文件</div>'; return; }
-  c.innerHTML = files.map(function(f) {
-    var dn = (f.name||'').replace(/^\d+_/,'');
-    var url = API_URL + '/api/files/' + encodeURIComponent(f.name);
-    return '<div class="file-card"><div><div class="file-name">'+esc(dn)+'</div><div class="file-size">'+formatSize(f.size||0)+'</div></div><div class="file-actions"><a href="'+url+'" target="_blank" class="btn-sm" style="text-decoration:none">下载</a></div></div>';
-  }).join('');
-}
-
-// ---------- INIT ----------
-loadName();
-setStatus('连接中...', 'connecting');
-fetch(API_URL+'/api/events').then(function(r) {
-  if (r.status === 404 || r.ok) {
-    setStatus('已连接', 'online');
-    loadEvents(); loadMessages(); loadFiles();
-  } else {
-    setStatus('API异常('+r.status+')', 'offline');
-  }
-}).catch(function() {
-  setStatus('无法连接', 'offline');
-  var m = '<div class="empty" style="color:#ef4444">⚠️ 无法连接到服务器</div>';
-  ['eventList','chatMessages','fileList'].forEach(function(id) { document.getElementById(id).innerHTML = m; });
-});
-</script>
-</body>
-</html>
+  var res = await 
