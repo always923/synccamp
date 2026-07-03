@@ -252,7 +252,6 @@ const SUPABASE_URL = 'https://tqxbfwwstbztqkexgtjw.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxeGJmd3dzdGJ6dHFrZXhndGp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzQ5NjEsImV4cCI6MjA5ODYxMDk2MX0.PlZlooz-Im_Y74Y_nEAU-kTMqGardJE6mtsym-K9Uko';
 
 let supabase = null;
-let userName = '';
 
 function initSupabase() {
   if (typeof window.supabase === 'undefined') {
@@ -264,8 +263,6 @@ function initSupabase() {
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   return true;
 }
-
-// === NAME, TABS, TOAST 已移至预加载脚本 ===
 
 // === EVENTS ===
 async function createEvent() {
